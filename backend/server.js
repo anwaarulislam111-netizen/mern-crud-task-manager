@@ -26,8 +26,8 @@ mongoose
   .then(() => {
     console.log("MongoDB connected successfully");
 
-    app.listen(PORT, () => {
-      console.log(`Server running at https://mern-crud-task-manager-production.up.railway.app/`);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
     });
   })
   .catch((error) => {
