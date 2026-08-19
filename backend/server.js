@@ -6,7 +6,7 @@ require("dotenv").config();
 const taskRoutes = require("./routes/taskRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 
 // Middleware
 app.use(cors());
@@ -14,14 +14,6 @@ app.use(express.json());
 
 // Routes
 app.use("/api/tasks", taskRoutes);
-
-// Serve frontend static files
-const path = require("path");
-app.use(express.static(path.join(__dirname, "../frontend/dist")));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
-});
 
 // MongoDB connection
 mongoose
@@ -36,5 +28,3 @@ mongoose
   .catch((error) => {
     console.error("MongoDB connection failed:", error.message);
   });
-
-module.exports = app;
