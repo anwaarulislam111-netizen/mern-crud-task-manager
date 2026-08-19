@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = "https://mern-crud-task-manager-production.up.railway.app";
+const API_URL = "https://mern-crud-task-manager-production.up.railway.app/api/tasks";
 
 function App() {
   const [tasks, setTasks] = useState([]);
