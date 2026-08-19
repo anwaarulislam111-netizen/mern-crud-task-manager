@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = "https://mern-crud-task-manager-production.up.railway.app/api/tasks";
+const API_URL = import.meta.env.VITE_API_URL || "/api/tasks";
 
 function App() {
   const [tasks, setTasks] = useState([]);
@@ -281,9 +281,8 @@ function App() {
                     <>
                       <div className="task-top">
                         <span
-                          className={`status ${
-                            task.completed ? "completed" : "pending"
-                          }`}
+                          className={`status ${task.completed ? "completed" : "pending"
+                            }`}
                         >
                           {task.completed ? "Completed" : "Pending"}
                         </span>

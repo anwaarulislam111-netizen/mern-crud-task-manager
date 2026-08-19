@@ -15,9 +15,12 @@ app.use(express.json());
 // Routes
 app.use("/api/tasks", taskRoutes);
 
-// Test route
-app.get("/", (req, res) => {
-  res.send("MERN CRUD Backend is running!");
+// Serve frontend static files
+const path = require("path");
+app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
 
 // MongoDB connection
