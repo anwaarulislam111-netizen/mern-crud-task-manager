@@ -1,181 +1,101 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = import.meta.env.VITE_API_URL || "/api/tasks";
+const API = import.meta.env.VITE_API_URL || "/api/tasks";
 
 function App() {
   const [tasks, setTasks] = useState([]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ title: "", description: "" });
+  const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const [editingTask, setEditingTask] = useState(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
+  const request = async (url, options) => {
+    const res = await fetch(url, options);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Request failed");
+    return data;
+  };
 
-  const fetchTasks = async () => {
+  const loadTasks = async () => {
     try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch(API_URL);
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch tasks");
-      }
-
-      const data = await response.json();
-      setTasks(data);
-    } catch (error) {
-      setError(error.message);
+      setTasks(await request(API));
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTasks();
+    loadTasks();
   }, []);
 
-  const addTask = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-
-    if (!title.trim()) {
-      setError("Please enter a task title.");
-      return;
-    }
+    if (!form.title.trim()) return setError("Title is required");
 
     try {
       setError("");
 
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          description,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to create task");
+      if (editing) {
+        const task = await request(`${API}/${editing._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...form, completed: editing.completed }),
+        });
+        setTasks(tasks.map((t) => (t._id === task._id ? task : t)));
+      } else {
+        const task = await request(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+        setTasks([task, ...tasks]);
       }
 
-      setTasks((prevTasks) => [data, ...prevTasks]);
-      setTitle("");
-      setDescription("");
-    } catch (error) {
-      setError(error.message);
+      setForm({ title: "", description: "" });
+      setEditing(null);
+    } catch (err) {
+      setError(err.message);
     }
   };
 
-  const startEdit = (task) => {
-    setEditingTask(task._id);
-    setEditTitle(task.title);
-    setEditDescription(task.description);
-    setError("");
-  };
-
-  const updateTask = async (id) => {
-    if (!editTitle.trim()) {
-      setError("Task title cannot be empty.");
-      return;
-    }
-
+  const remove = async (id) => {
     try {
-      setError("");
+      await request(`${API}/${id}`, { method: "DELETE" });
+      setTasks(tasks.filter((t) => t._id !== id));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
-      const currentTask = tasks.find((task) => task._id === id);
-
-      const response = await fetch(`${API_URL}/${id}`, {
+  const toggle = async (task) => {
+    try {
+      const updated = await request(`${API}/${task._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: editTitle,
-          description: editDescription,
-          completed: currentTask?.completed || false,
-        }),
-      });
-
-      const updatedTask = await response.json();
-
-      if (!response.ok) {
-        throw new Error(updatedTask.message || "Failed to update task");
-      }
-
-      setTasks((prevTasks) =>
-        prevTasks.map((task) =>
-          task._id === id ? updatedTask : task
-        )
-      );
-
-      setEditingTask(null);
-      setEditTitle("");
-      setEditDescription("");
-    } catch (error) {
-      setError(error.message);
-    }
-  };
-
-  const deleteTask = async (id) => {
-    try {
-      setError("");
-
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to delete task");
-      }
-
-      setTasks((prevTasks) =>
-        prevTasks.filter((task) => task._id !== id)
-      );
-    } catch (error) {
-      setError(error.message);
-    }
-  };
-
-  const toggleTask = async (task) => {
-    try {
-      setError("");
-
-      const response = await fetch(`${API_URL}/${task._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: task.title,
           description: task.description,
           completed: !task.completed,
         }),
       });
-
-      const updatedTask = await response.json();
-
-      if (!response.ok) {
-        throw new Error(updatedTask.message || "Failed to update task");
-      }
-
-      setTasks((prevTasks) =>
-        prevTasks.map((item) =>
-          item._id === task._id ? updatedTask : item
-        )
-      );
-    } catch (error) {
-      setError(error.message);
+      setTasks(tasks.map((t) => (t._id === updated._id ? updated : t)));
+    } catch (err) {
+      setError(err.message);
     }
+  };
+
+  const edit = (task) => {
+    setEditing(task);
+    setForm({ title: task.title, description: task.description });
+    setError("");
+  };
+
+  const cancel = () => {
+    setEditing(null);
+    setForm({ title: "", description: "" });
   };
 
   return (
@@ -188,7 +108,6 @@ function App() {
             Manage your tasks with React, Express & MongoDB.
           </p>
         </div>
-
         <div className="task-count">
           <strong>{tasks.length}</strong>
           <span>Total Tasks</span>
@@ -199,26 +118,30 @@ function App() {
 
       <main>
         <section className="form-card">
-          <h2>Add New Task</h2>
+          <h2>{editing ? "Edit Task" : "Add New Task"}</h2>
 
-          <form onSubmit={addTask}>
+          <form onSubmit={submit}>
             <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="Task title"
             />
-
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={form.description}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
               placeholder="Task description"
               rows="4"
             />
-
-            <button className="primary-btn" type="submit">
-              + Add Task
+            <button className="primary-btn">
+              {editing ? "Save Task" : "+ Add Task"}
             </button>
+            {editing && (
+              <button type="button" className="cancel-btn" onClick={cancel}>
+                Cancel
+              </button>
+            )}
           </form>
         </section>
 
@@ -231,12 +154,9 @@ function App() {
           </div>
 
           {loading ? (
+            <div className="empty-state">Loading tasks...</div>
+          ) : !tasks.length ? (
             <div className="empty-state">
-              <p>Loading tasks...</p>
-            </div>
-          ) : tasks.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon">✓</div>
               <h3>No tasks yet</h3>
               <p>Add your first task to get started.</p>
             </div>
@@ -244,84 +164,31 @@ function App() {
             <div className="task-grid">
               {tasks.map((task) => (
                 <article className="task-card" key={task._id}>
-                  {editingTask === task._id ? (
-                    <div className="edit-form">
-                      <input
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        placeholder="Task title"
-                      />
+                  <div className="task-top">
+                    <span className={`status ${task.completed ? "completed" : "pending"}`}>
+                      {task.completed ? "Completed" : "Pending"}
+                    </span>
+                  </div>
 
-                      <textarea
-                        value={editDescription}
-                        onChange={(e) =>
-                          setEditDescription(e.target.value)
-                        }
-                        rows="4"
-                        placeholder="Task description"
-                      />
+                  <h3 className={task.completed ? "done-title" : ""}>
+                    {task.title}
+                  </h3>
 
-                      <div className="button-row">
-                        <button
-                          className="save-btn"
-                          onClick={() => updateTask(task._id)}
-                        >
-                          Save
-                        </button>
+                  <p className="task-description">
+                    {task.description || "No description provided."}
+                  </p>
 
-                        <button
-                          className="cancel-btn"
-                          onClick={() => setEditingTask(null)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="task-top">
-                        <span
-                          className={`status ${task.completed ? "completed" : "pending"
-                            }`}
-                        >
-                          {task.completed ? "Completed" : "Pending"}
-                        </span>
-                      </div>
-
-                      <h3 className={task.completed ? "done-title" : ""}>
-                        {task.title}
-                      </h3>
-
-                      <p className="task-description">
-                        {task.description || "No description provided."}
-                      </p>
-
-                      <div className="button-row">
-                        <button
-                          className="complete-btn"
-                          onClick={() => toggleTask(task)}
-                        >
-                          {task.completed
-                            ? "Mark Pending"
-                            : "Mark Complete"}
-                        </button>
-
-                        <button
-                          className="edit-btn"
-                          onClick={() => startEdit(task)}
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          className="delete-btn"
-                          onClick={() => deleteTask(task._id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <div className="button-row">
+                    <button className="complete-btn" onClick={() => toggle(task)}>
+                      {task.completed ? "Mark Pending" : "Mark Complete"}
+                    </button>
+                    <button className="edit-btn" onClick={() => edit(task)}>
+                      Edit
+                    </button>
+                    <button className="delete-btn" onClick={() => remove(task._id)}>
+                      Delete
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
